@@ -54,3 +54,43 @@ variable "rds_subnet_ids" {
   description = "List of Subnet IDs for RDS"
   type        = list(string)
 }
+
+variable "alb_subnet_ids" {
+  description = "List of subnet IDs for the ALB"
+  type        = list(string)
+}
+
+variable "alb_target_group_name" {
+  description = "Name for the Target Group"
+  type        = string
+  default     = "web-target-group"
+}
+
+variable "min_size" {
+  description = "Minimum number of EC2 instances"
+  type        = number
+  default     = 1
+}
+
+variable "max_size" {
+  description = "Maximum number of EC2 instances"
+  type        = number
+  default     = 2
+}
+
+variable "desired_capacity" {
+  description = "Desired number of EC2 instances"
+  type        = number
+  default     = 1
+}
+
+variable "launch_template_version" {
+  description = "Launch Template Version"
+  type        = string
+  default     = "$Latest"
+}
+
+variable "cloudfront_origin_domain" {
+  description = "Origin domain name for CloudFront (e.g., ALB DNS)"
+  type        = string
+}
