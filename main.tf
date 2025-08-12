@@ -60,6 +60,57 @@ resource "aws_kms_key" "rds_kms" {
   enable_key_rotation     = true
 }
 
+resource "aws_secretsmanager_secret" "rds_secret" {
+  name        = "rds-db-credentials"
+  description = "RDS DB credentials with automatic rotation"
+  kms_key_id  = aws_kms_key.rds_kms.arn
+}
+
+resource "aws_secretsmanager_secret_version" "rds_secret_version" {
+  secret_id     = aws_secretsmanager_secret.rds_secret.id
+  secret_string = jsonencode({
+    username = var.db_username
+    password = var.db_password
+  })
+}
+
+# IAM Role for Rotation Lambda
+resource "aws_iam_role" "lambda_rotation_role" {
+  name = "lambda-rotation-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action = "sts:AssumeRole",
+      Effect = "Allow",
+      Principal = {
+        Service = "lambda.amazonaws.com"
+      }
+    }]
+  })
+}
+
+# Attach required policies to Lambda role
+resource "aws_iam_role_policy_attachment" "lambda_rotation_secrets_policy" {
+  role       = aws_iam_role.lambda_rotation_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/SecretsManagerRotationTemplateServiceRolePolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_rotation_rds_policy" {
+  role       = aws_iam_role.lambda_rotation_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonRDSFullAccess"
+}
+
+# Lambda Function for Password Rotation
+resource "aws_lambda_function" "rds_rotation_lambda" {
+  function_name = "rds-password-rotation"
+  role          = aws_iam_role.lambda_rotation_role.arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.9"
+  filename      = "rotation-lambda.zip" # Upload AWS provided RDS rotation Lambda package
+  timeout       = 300
+}
+
 resource "aws_secretsmanager_secret_rotation" "rds_rotation" {
   secret_id           = aws_secretsmanager_secret.rds_secret.id
   rotation_lambda_arn = aws_lambda_function.rds_rotation_lambda.arn
